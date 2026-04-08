@@ -1,0 +1,115 @@
+name: robot-assembly-qa
+version: "1.0.0"
+
+description: >
+  A robot arm pick & place environment simulating real-world assembly line QA.
+  An AI agent must sequence object placement respecting weight, fragility,
+  and dependency constraints.
+
+author: Melwin Joseph
+
+tags:
+  - openenv
+  - robotics
+  - assembly
+  - pick-and-place
+  - manufacturing
+
+# 🔥 IMPORTANT (ADDED)
+entrypoint: env.environment:RobotAssemblyEnv
+
+# ─────────────────────────────
+# OBSERVATION SPACE
+# ─────────────────────────────
+observation_space:
+  type: object
+  properties:
+    task_id:
+      type: string
+    step_number:
+      type: integer
+    objects:
+      type: array
+      items:
+        type: object
+        properties:
+          id:
+            type: string
+          name:
+            type: string
+          weight:
+            type: number
+          fragile:
+            type: boolean
+          position:
+            type: array
+            items:
+              type: number
+          target:
+            type: array
+            items:
+              type: number
+          depends_on:
+            type: string
+            nullable: true
+          placed:
+            type: boolean
+    last_action:
+      type: string
+    last_action_result:
+      type: string
+    arm_position:
+      type: array
+      items:
+        type: number
+    time_remaining:
+      type: integer
+    message:
+      type: string
+
+# ─────────────────────────────
+# ACTION SPACE
+# ─────────────────────────────
+action_space:
+  type: object
+  properties:
+    action_type:
+      type: string
+      enum: ["pick_place", "skip", "submit"]
+    object_id:
+      type: string
+      nullable: true
+    metadata:
+      type: object
+  required:
+    - action_type
+
+# ─────────────────────────────
+# REWARD
+# ─────────────────────────────
+reward:
+  type: float
+  description: >
+    Reward is shaped across the trajectory and may be negative for constraint violations.
+    Final score is computed by a deterministic grader based on:
+    completion, efficiency, and constraint adherence.
+
+# ─────────────────────────────
+# TASKS
+# ─────────────────────────────
+tasks:
+  - id: easy
+    name: Basic Pick & Place
+    description: 3 objects with no constraints
+    max_steps: 10
+
+  - id: medium
+    name: Constrained Assembly
+    description: Fragility ordering constraints
+    max_steps: 20
+
+  - id: hard
+    name: Dependency Assembly
+    description: Dependency chains with time limit
+    max_steps: 20
+    
