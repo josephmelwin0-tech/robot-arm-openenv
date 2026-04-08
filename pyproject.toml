@@ -1,0 +1,21 @@
+[build-system]
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "robot-arm-openenv"
+version = "1.0.0"
+description = "OpenEnv robot arm pick-and-place environment"
+authors = [
+    { name = "Melwin Joseph" }
+]
+dependencies = [
+    "pydantic",
+    "openai",
+    "python-dotenv",
+    "fastapi",
+    "uvicorn"
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
