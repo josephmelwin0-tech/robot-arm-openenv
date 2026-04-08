@@ -216,3 +216,17 @@ def run_task(task_id: str):
 if __name__ == "__main__":
     for task_id in TASKS.keys():
         run_task(task_id)
+
+    print("✅ Inference completed. Starting dummy server...", flush=True)
+
+    # 🔥 Minimal HTTP server to satisfy HF
+    import http.server
+    import socketserver
+
+    PORT = 7860
+
+    Handler = http.server.SimpleHTTPRequestHandler
+
+    with socketserver.TCPServer(("", PORT), Handler) as httpd:
+        print(f"Serving at port {PORT}", flush=True)
+        httpd.serve_forever()
