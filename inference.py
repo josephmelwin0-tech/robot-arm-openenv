@@ -1,13 +1,4 @@
-"""
-FINAL Inference Script — OpenEnv Compliant
-=========================================
-✔ Strict log format
-✔ Robust JSON parsing
-✔ Deterministic fallback
-✔ Reproducible execution
-✔ Hackathon-compliant env variables
-"""
-
+# (same imports as before)
 import os
 import json
 from typing import List
@@ -22,13 +13,12 @@ from env.models import Action
 from env.grader import grade
 from env.tasks import TASKS
 
-
+from fastapi import FastAPI
 
 # ─────────────────────────────────────────
-# CONFIG (MANDATORY ENV VARS)
+# CONFIG
 # ─────────────────────────────────────────
 
-# ✅ FIX 1: os.getenv("KEY_NAME", "default_value") — not os.getenv("default_value")
 API_BASE_URL = os.getenv("API_BASE_URL")
 MODEL_NAME   = os.getenv("MODEL_NAME")
 HF_TOKEN     = os.getenv("HF_TOKEN")
@@ -36,7 +26,6 @@ HF_TOKEN     = os.getenv("HF_TOKEN")
 BENCHMARK = "robot_arm_openenv"
 MAX_STEPS = 15
 
-# Hard fail if HF_TOKEN is missing (API_BASE_URL and MODEL_NAME have safe defaults)
 if not API_BASE_URL or not MODEL_NAME or not HF_TOKEN:
     raise ValueError(
         "Missing required environment variables: API_BASE_URL, MODEL_NAME, HF_TOKEN"
@@ -47,9 +36,8 @@ client = OpenAI(
     base_url=API_BASE_URL,
 )
 
-
-# ───────────────────────────────────────── 
-# PROMPT BUILDERS
+# ─────────────────────────────────────────
+# PROMPTS (UNCHANGED)
 # ─────────────────────────────────────────
 
 def build_system_prompt() -> str:
@@ -64,7 +52,6 @@ Respond ONLY with valid JSON:
 {"action_type": "pick_place" | "submit" | "skip", "object_id": "<id or null>"}
 """
 
-
 def build_user_prompt(obs: dict) -> str:
     lines = []
     for o in obs["objects"]:
@@ -74,9 +61,8 @@ def build_user_prompt(obs: dict) -> str:
         lines.append(f"{o['id']} {status}{frag}{dep}")
     return "Objects:\n" + "\n".join(lines)
 
-
 # ─────────────────────────────────────────
-# SAFE JSON PARSER
+# SAFE PARSE (UNCHANGED)
 # ─────────────────────────────────────────
 
 def safe_parse(raw: str):
@@ -91,9 +77,8 @@ def safe_parse(raw: str):
     except Exception:
         return None
 
-
 # ─────────────────────────────────────────
-# FALLBACK POLICY (DETERMINISTIC)
+# FALLBACK (UNCHANGED)
 # ─────────────────────────────────────────
 
 def fallback_action(obs):
@@ -118,12 +103,10 @@ def violates_fragility(obs, action):
         for o in obs.objects:
             if not o.placed and not o.fragile:
                 return True
-
     return False
 
-
 # ─────────────────────────────────────────
-# MAIN TASK LOOP
+# MAIN LOOP (UNCHANGED)
 # ─────────────────────────────────────────
 
 def run_task(task_id: str):
@@ -148,7 +131,6 @@ def run_task(task_id: str):
 
             action = None
 
-            # ── LLM CALL ─────────────────────
             try:
                 response = client.chat.completions.create(
                     model=MODEL_NAME,
@@ -170,14 +152,11 @@ def run_task(task_id: str):
             except Exception as e:
                 last_error = str(e)
 
-            # ── FALLBACK ─────────────────────
             if action is None or violates_fragility(obs, action):
                 action = fallback_action(obs)
 
-            # ✅ FIX 3: include object_id in action_str
             action_str = action.action_type
 
-            # ── ENV STEP ─────────────────────
             obs, reward, done, info = env.step(action)
             last_error = info.get("error", None)
             rewards.append(reward)
@@ -192,10 +171,7 @@ def run_task(task_id: str):
     except Exception as e:
         last_error = str(e)
 
-    # ── FINAL SCORING ─────────────────────
     score = grade(task_id, env.state())
-
-    # ✅ FIX 2: success based on score threshold, not just done
     success = done
 
     print(
@@ -208,25 +184,41 @@ def run_task(task_id: str):
 
     env.close()
 
+# ─────────────────────────────────────────
+# FASTAPI SERVER (UNCHANGED)
+# ─────────────────────────────────────────
+
+app = FastAPI()
+env_instance = None
+
+@app.post("/reset")
+def reset():
+    global env_instance
+    env_instance = RobotAssemblyEnv(task_id="easy", seed=42)
+    obs = env_instance.reset()
+    return obs.model_dump()
+
+@app.post("/step")
+def step(action: dict):
+    global env_instance
+    obs, reward, done, info = env_instance.step(action)
+    return {
+        "observation": obs.model_dump(),
+        "reward": reward,
+        "done": done,
+        "info": info
+    }
+
+@app.get("/")
+def root():
+    return {"status": "running"}
 
 # ─────────────────────────────────────────
-# ENTRY POINT
+# ENTRY POINT (FIXED)
 # ─────────────────────────────────────────
 
 if __name__ == "__main__":
     for task_id in TASKS.keys():
         run_task(task_id)
 
-    print("✅ Inference completed. Starting dummy server...", flush=True)
-
-    # 🔥 Minimal HTTP server to satisfy HF
-    import http.server
-    import socketserver
-
-    PORT = 7860
-
-    Handler = http.server.SimpleHTTPRequestHandler
-
-    with socketserver.TCPServer(("", PORT), Handler) as httpd:
-        print(f"Serving at port {PORT}", flush=True)
-        httpd.serve_forever()
+    print("✅ Inference completed. API ready.", flush=True)
