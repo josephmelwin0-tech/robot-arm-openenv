@@ -37,4 +37,4 @@ EXPOSE 7860
 # ─────────────────────────────
 # Default Command
 # ─────────────────────────────
-CMD ["python", "inference.py"]
+CMD ["uvicorn", "inference:app", "--host", "0.0.0.0", "--port", "7860"]
