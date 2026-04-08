@@ -1,5 +1,6 @@
 from fastapi import FastAPI
 from env.environment import RobotAssemblyEnv
+import uvicorn
 
 app = FastAPI()
 
@@ -29,3 +30,13 @@ def step(action: dict):
 @app.get("/")
 def root():
     return {"status": "running"}
+
+
+# 🔥 REQUIRED FOR OPENENV
+def main():
+    uvicorn.run(app, host="0.0.0.0", port=7860)
+
+
+# 🔥 REQUIRED ENTRY POINT
+if __name__ == "__main__":
+    main()
