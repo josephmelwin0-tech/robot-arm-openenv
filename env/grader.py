@@ -32,9 +32,10 @@ def grade_easy(state: EnvState) -> float:
     placed = sum(o.placed for o in state.objects)
     score = placed / total
 
-    # ✅ FIX: clamp strictly between (0,1)
+    # ✅ FIX: round first, THEN clamp
+    score = round(score, 4)
     score = max(EPS, min(1 - EPS, score))
-    return round(score, 4)
+    return score
 
 
 # 🟡 MEDIUM — adds ordering + efficiency (IMPROVED)
@@ -70,9 +71,10 @@ def grade_medium(state: EnvState) -> float:
         + (constraint_score * 0.1)
     )
 
-    # ✅ FIX: clamp strictly between (0,1)
+    # ✅ FIX: round first, THEN clamp
+    score = round(score, 4)
     score = max(EPS, min(1 - EPS, score))
-    return round(score, 4)
+    return score
 
 
 # 🔴 HARD — full constraints + better scaling (IMPROVED)
@@ -116,6 +118,7 @@ def grade_hard(state: EnvState) -> float:
         + (constraint_score * 0.20)
     )
 
-    # ✅ FIX: clamp strictly between (0,1)
+    # ✅ FIX: round first, THEN clamp
+    score = round(score, 4)
     score = max(EPS, min(1 - EPS, score))
-    return round(score, 4)
+    return score
