@@ -11,6 +11,11 @@ from typing import Dict, List, Optional, Tuple
 from env.models import Object, Observation, Action, EnvState
 
 
+def _clamp_reward(r: float) -> float:
+    """Ensure reward is never exactly 0.0 or 1.0."""
+    return max(0.001, min(0.999, round(r, 4)))
+
+
 class RobotAssemblyEnv:
 
     TASK_IDS = ["easy", "medium", "hard"]
@@ -58,6 +63,9 @@ class RobotAssemblyEnv:
         # 🔥 Step penalty (important for efficiency learning)
         reward -= 0.01
 
+        # ✅ Clamp reward to strict (0, 1) open interval
+        reward = _clamp_reward(reward)
+
         self._state.total_reward += reward
         self._state.action_history.append(action.action_type)
 
@@ -66,7 +74,7 @@ class RobotAssemblyEnv:
 
         obs = self._build_obs(feedback, action.action_type)
 
-        return obs, round(reward, 2), done, {"error": error}
+        return obs, round(reward, 4), done, {"error": error}
 
     def state(self) -> EnvState:
         return copy.deepcopy(self._state)
