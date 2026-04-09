@@ -1,6 +1,8 @@
 # (same imports as before)
 import os
 import json
+import time
+import requests
 from typing import List
 
 from dotenv import load_dotenv
@@ -8,12 +10,9 @@ load_dotenv()
 
 from openai import OpenAI
 
-from env.environment import RobotAssemblyEnv
 from env.models import Action
 from env.grader import grade
 from env.tasks import TASKS
-
-from fastapi import FastAPI
 
 # ─────────────────────────────────────────
 # CONFIG
@@ -22,6 +21,8 @@ from fastapi import FastAPI
 API_BASE_URL = os.getenv("API_BASE_URL")
 MODEL_NAME   = os.getenv("MODEL_NAME")
 HF_TOKEN     = os.getenv("HF_TOKEN")
+
+BASE_URL = "http://127.0.0.1:8000"
 
 BENCHMARK = "robot_arm_openenv"
 MAX_STEPS = 15
@@ -35,6 +36,23 @@ client = OpenAI(
     api_key=HF_TOKEN,
     base_url=API_BASE_URL,
 )
+
+# ─────────────────────────────────────────
+# WAIT FOR SERVER
+# ─────────────────────────────────────────
+
+def wait_for_server():
+    for _ in range(15):
+        try:
+            r = requests.get(BASE_URL)
+            if r.status_code == 200:
+                print("Server ready ✅", flush=True)
+                return True
+        except:
+            pass
+        time.sleep(1)
+    print("Server not reachable ❌", flush=True)
+    return False
 
 # ─────────────────────────────────────────
 # PROMPTS (UNCHANGED)
@@ -78,42 +96,46 @@ def safe_parse(raw: str):
         return None
 
 # ─────────────────────────────────────────
-# FALLBACK (UNCHANGED)
+# FALLBACK (SAFE VERSION)
 # ─────────────────────────────────────────
 
 def fallback_action(obs):
-    for o in obs.objects:
-        if not o.placed:
-            if o.depends_on:
-                dep = next((x for x in obs.objects if x.id == o.depends_on), None)
-                if dep and not dep.placed:
+    for o in obs["objects"]:
+        if not o["placed"]:
+            if o.get("depends_on"):
+                dep = next((x for x in obs["objects"] if x["id"] == o["depends_on"]), None)
+                if dep and not dep["placed"]:
                     continue
-            return Action(action_type="pick_place", object_id=o.id)
-    return Action(action_type="submit")
+            return {"action_type": "pick_place", "object_id": o["id"]}
+    return {"action_type": "submit", "object_id": None}
 
 def violates_fragility(obs, action):
-    if action.action_type != "pick_place":
+    if action["action_type"] != "pick_place":
         return False
 
-    obj = next((o for o in obs.objects if o.id == action.object_id), None)
+    obj = next((o for o in obs["objects"] if o["id"] == action["object_id"]), None)
     if not obj:
         return False
 
-    if obj.fragile:
-        for o in obs.objects:
-            if not o.placed and not o.fragile:
+    if obj["fragile"]:
+        for o in obs["objects"]:
+            if not o["placed"] and not o["fragile"]:
                 return True
     return False
 
 # ─────────────────────────────────────────
-# MAIN LOOP (UNCHANGED)
+# MAIN LOOP (API VERSION)
 # ─────────────────────────────────────────
 
 def run_task(task_id: str):
-    env = RobotAssemblyEnv(task_id=task_id, seed=42)
-    obs = env.reset()
-
     print(f"[START] task={task_id} env={BENCHMARK} model={MODEL_NAME}", flush=True)
+
+    try:
+        res = requests.post(f"{BASE_URL}/reset", json={"task": task_id})
+        obs = res.json()
+    except Exception as e:
+        print("[RESET ERROR]", e, flush=True)
+        return
 
     rewards: List[float] = []
     done = False
@@ -126,7 +148,7 @@ def run_task(task_id: str):
         while not done and step < MAX_STEPS:
             step += 1
 
-            user_msg = build_user_prompt(obs.model_dump())
+            user_msg = build_user_prompt(obs)
             messages.append({"role": "user", "content": user_msg})
 
             action = None
@@ -138,14 +160,15 @@ def run_task(task_id: str):
                     temperature=0.2,
                     max_tokens=150,
                 )
+
                 raw = response.choices[0].message.content or ""
                 parsed = safe_parse(raw)
 
                 if parsed:
-                    action = Action(
-                        action_type=parsed.get("action_type", "skip"),
-                        object_id=parsed.get("object_id"),
-                    )
+                    action = {
+                        "action_type": parsed.get("action_type", "skip"),
+                        "object_id": parsed.get("object_id"),
+                    }
 
                 messages.append({"role": "assistant", "content": raw})
 
@@ -155,14 +178,22 @@ def run_task(task_id: str):
             if action is None or violates_fragility(obs, action):
                 action = fallback_action(obs)
 
-            action_str = action.action_type
+            try:
+                res = requests.post(f"{BASE_URL}/step", json=action)
+                data = res.json()
+            except Exception as e:
+                print("[STEP ERROR]", e, flush=True)
+                break
 
-            obs, reward, done, info = env.step(action)
-            last_error = info.get("error", None)
+            obs = data["observation"]
+            reward = data["reward"]
+            done = data["done"]
+            last_error = data.get("info", {}).get("error", None)
+
             rewards.append(reward)
 
             print(
-                f"[STEP] step={step} action={action_str} "
+                f"[STEP] step={step} action={action['action_type']} "
                 f"reward={reward:.2f} done={str(done).lower()} "
                 f"error={last_error if last_error else 'null'}",
                 flush=True
@@ -171,54 +202,22 @@ def run_task(task_id: str):
     except Exception as e:
         last_error = str(e)
 
-    score = grade(task_id, env.state())
-    success = done
-
     print(
-        f"[END] success={str(success).lower()} "
+        f"[END] success={str(done).lower()} "
         f"steps={step} "
-        f"score={score:.2f} "
         f"rewards={','.join(f'{r:.2f}' for r in rewards)}",
         flush=True
     )
 
-    env.close()
-
 # ─────────────────────────────────────────
-# FASTAPI SERVER (UNCHANGED)
-# ─────────────────────────────────────────
-
-app = FastAPI()
-env_instance = None
-
-@app.post("/reset")
-def reset():
-    global env_instance
-    env_instance = RobotAssemblyEnv(task_id="easy", seed=42)
-    obs = env_instance.reset()
-    return obs.model_dump()
-
-@app.post("/step")
-def step(action: dict):
-    global env_instance
-    obs, reward, done, info = env_instance.step(action)
-    return {
-        "observation": obs.model_dump(),
-        "reward": reward,
-        "done": done,
-        "info": info
-    }
-
-@app.get("/")
-def root():
-    return {"status": "running"}
-
-# ─────────────────────────────────────────
-# ENTRY POINT (FIXED)
+# ENTRY POINT
 # ─────────────────────────────────────────
 
 if __name__ == "__main__":
+    if not wait_for_server():
+        exit(1)
+
     for task_id in TASKS.keys():
         run_task(task_id)
 
-    print("✅ Inference completed. API ready.", flush=True)
+    print("✅ Inference completed.", flush=True)
