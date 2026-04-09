@@ -21,7 +21,7 @@ print("📦 inference.py loaded", flush=True)
 # ─────────────────────────────────────────
 
 API_BASE_URL = os.getenv("API_BASE_URL")
-MODEL_NAME   = os.getenv("MODEL_NAME")
+MODEL_NAME = os.getenv("MODEL_NAME") or "gpt-4o-mini"
 API_KEY = os.getenv("API_KEY")
 
 # ✅ FIX: correct container-safe URL
