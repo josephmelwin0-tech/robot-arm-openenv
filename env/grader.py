@@ -12,6 +12,18 @@ from env.models import EnvState
 EPS = 1e-3
 
 
+# ✅ FINAL SAFETY NORMALIZER (NEW)
+def normalize_score(score: float) -> float:
+    score = round(score, 4)
+
+    if score <= 0.0:
+        return 0.001
+    if score >= 1.0:
+        return 0.999
+
+    return score
+
+
 def grade(task_id: str, state: EnvState) -> float:
     if task_id == "easy":
         return grade_easy(state)
@@ -27,22 +39,20 @@ def grade(task_id: str, state: EnvState) -> float:
 def grade_easy(state: EnvState) -> float:
     total = len(state.objects)
     if total == 0:
-        return EPS
+        return 0.001  # ✅ fixed
 
     placed = sum(o.placed for o in state.objects)
     score = placed / total
 
-    # ✅ FIX: round first, THEN clamp
-    score = round(score, 4)
-    score = max(EPS, min(1 - EPS, score))
-    return score
+    # ✅ FIX: normalize AFTER everything
+    return normalize_score(score)
 
 
 # 🟡 MEDIUM — adds ordering + efficiency (IMPROVED)
 def grade_medium(state: EnvState) -> float:
     total = len(state.objects)
     if total == 0:
-        return EPS
+        return 0.001  # ✅ fixed
 
     placed = sum(o.placed for o in state.objects)
     completion = placed / total
@@ -71,17 +81,15 @@ def grade_medium(state: EnvState) -> float:
         + (constraint_score * 0.1)
     )
 
-    # ✅ FIX: round first, THEN clamp
-    score = round(score, 4)
-    score = max(EPS, min(1 - EPS, score))
-    return score
+    # ✅ FIX: normalize AFTER everything
+    return normalize_score(score)
 
 
 # 🔴 HARD — full constraints + better scaling (IMPROVED)
 def grade_hard(state: EnvState) -> float:
     total = len(state.objects)
     if total == 0:
-        return EPS
+        return 0.001  # ✅ fixed
 
     placed = sum(o.placed for o in state.objects)
     completion = placed / total
@@ -118,7 +126,5 @@ def grade_hard(state: EnvState) -> float:
         + (constraint_score * 0.20)
     )
 
-    # ✅ FIX: round first, THEN clamp
-    score = round(score, 4)
-    score = max(EPS, min(1 - EPS, score))
-    return score
+    # ✅ FIX: normalize AFTER everything
+    return normalize_score(score)
