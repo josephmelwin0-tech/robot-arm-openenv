@@ -231,14 +231,13 @@ def run_task(task_id: str):
 # ─────────────────────────────────────────
 # ENTRY POINT (CRITICAL FIX)
 # ─────────────────────────────────────────
-
-if __name__ == "__main__":
+def main():
     try:
         print("🚀 INFERENCE STARTED", flush=True)
 
         if not wait_for_server():
             print("Server not reachable ❌", flush=True)
-            exit(0)  # ✅ DO NOT crash
+            return
 
         for task_id in TASKS.keys():
             run_task(task_id)
@@ -247,4 +246,5 @@ if __name__ == "__main__":
 
     except Exception as e:
         print("[FATAL ERROR]", str(e), flush=True)
-        exit(0)  # ✅ NEVER exit with error
+if __name__ == "__main__":
+    main()
