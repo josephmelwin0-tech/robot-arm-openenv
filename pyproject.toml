@@ -20,4 +20,4 @@ dependencies = [
 
 #  REQUIRED ENTRY POINT
 [project.scripts]
-server = "server.app:app"
+entrypoint = "server.app:app"
