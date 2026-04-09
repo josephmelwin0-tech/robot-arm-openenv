@@ -231,7 +231,6 @@ def run_task(task_id: str):
         f"rewards={','.join(f'{r:.2f}' for r in rewards)}",
         flush=True
     )
-
 # ─────────────────────────────────────────
 # ENTRY POINT (CRITICAL FIX)
 # ─────────────────────────────────────────
