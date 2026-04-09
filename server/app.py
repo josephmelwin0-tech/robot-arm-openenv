@@ -8,11 +8,14 @@ env_instance = None
 
 
 @app.post("/reset")
-def reset(req: dict):
+def reset(req: dict = None):
     global env_instance
 
     try:
-        task_id = req.get("task", "easy")  # ✅ dynamic task support
+        task_id = "easy"
+        if req and "task" in req:
+            task_id = req["task"]
+
         env_instance = RobotAssemblyEnv(task_id=task_id, seed=42)
         obs = env_instance.reset()
         return obs.model_dump()
