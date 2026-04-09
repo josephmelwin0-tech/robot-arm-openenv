@@ -22,7 +22,7 @@ API_BASE_URL = os.getenv("API_BASE_URL")
 MODEL_NAME   = os.getenv("MODEL_NAME")
 HF_TOKEN     = os.getenv("HF_TOKEN")
 
-BASE_URL = "http://127.0.0.1:7860"
+BASE_URL = "http://127.0.0.1:8000"
 
 BENCHMARK = "robot_arm_openenv"
 MAX_STEPS = 15
