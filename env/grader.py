@@ -9,7 +9,7 @@ from typing import List
 from env.models import EnvState
 
 # ✅ NEW: small epsilon to avoid 0 and 1 exactly
-EPS = 1e-6
+EPS = 1e-3
 
 
 def grade(task_id: str, state: EnvState) -> float:
