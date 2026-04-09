@@ -30,15 +30,19 @@ BASE_URL = "http://localhost:7860"
 BENCHMARK = "robot_arm_openenv"
 MAX_STEPS = 15
 
+# ✅ Safe fallback (DO NOT CRASH)
 if not API_BASE_URL or not MODEL_NAME or not HF_TOKEN:
-    raise ValueError(
-        "Missing required environment variables: API_BASE_URL, MODEL_NAME, HF_TOKEN"
-    )
+    print("⚠️ Missing API config, switching to fallback mode", flush=True)
+    API_BASE_URL = None
+    MODEL_NAME = None
+    HF_TOKEN = None
 
-client = OpenAI(
-    api_key=HF_TOKEN,
-    base_url=API_BASE_URL,
-)
+client = None
+if API_BASE_URL and MODEL_NAME and HF_TOKEN:
+    client = OpenAI(
+        api_key=HF_TOKEN,
+        base_url=API_BASE_URL,
+    )
 
 # ─────────────────────────────────────────
 # WAIT FOR SERVER
