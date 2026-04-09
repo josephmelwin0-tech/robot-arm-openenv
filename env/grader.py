@@ -12,14 +12,15 @@ from env.models import EnvState
 EPS = 1e-3
 
 
-# ✅ FINAL SAFETY NORMALIZER (NEW)
+# ✅ FINAL SAFETY NORMALIZER (UPDATED)
 def normalize_score(score: float) -> float:
     score = round(score, 4)
 
+    # ✅ HARD CLAMP (guaranteed safe)
     if score <= 0.0:
-        return 0.001
+        score = 0.001
     if score >= 1.0:
-        return 0.999
+        score = 0.999
 
     return score
 
@@ -44,7 +45,6 @@ def grade_easy(state: EnvState) -> float:
     placed = sum(o.placed for o in state.objects)
     score = placed / total
 
-    # ✅ FIX: normalize AFTER everything
     return normalize_score(score)
 
 
@@ -81,7 +81,6 @@ def grade_medium(state: EnvState) -> float:
         + (constraint_score * 0.1)
     )
 
-    # ✅ FIX: normalize AFTER everything
     return normalize_score(score)
 
 
@@ -126,5 +125,4 @@ def grade_hard(state: EnvState) -> float:
         + (constraint_score * 0.20)
     )
 
-    # ✅ FIX: normalize AFTER everything
     return normalize_score(score)
