@@ -22,3 +22,4 @@ dependencies = [
 #  REQUIRED ENTRY POINT
 [project.scripts]
 entrypoint = "server.app:app"
+inference = "inference:main"
