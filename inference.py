@@ -11,7 +11,7 @@ load_dotenv()
 from openai import OpenAI
 
 from env.models import Action
-from env.grader import grade
+from env.grader import grade, normalize_score
 from env.tasks import TASKS
 
 print("📦 inference.py loaded", flush=True)
@@ -227,12 +227,21 @@ def run_task(task_id: str):
     except Exception as e:
         last_error = str(e)
 
+    # ✅ FIXED: compute normalized score strictly in (0, 1) and include in [END]
+    if rewards:
+        raw_score = sum(rewards) / len(rewards)
+    else:
+        raw_score = 0.5
+    final_score = normalize_score(raw_score)
+
     print(
         f"[END] success={str(done).lower()} "
         f"steps={step} "
+        f"score={final_score:.4f} "
         f"rewards={','.join(f'{r:.2f}' for r in rewards)}",
         flush=True
     )
+
 # ─────────────────────────────────────────
 # ENTRY POINT (CRITICAL FIX)
 # ─────────────────────────────────────────
@@ -251,5 +260,6 @@ def main():
 
     except Exception as e:
         print("[FATAL ERROR]", str(e), flush=True)
+
 if __name__ == "__main__":
     main()
