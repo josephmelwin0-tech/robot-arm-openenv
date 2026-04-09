@@ -22,7 +22,7 @@ print("📦 inference.py loaded", flush=True)
 
 API_BASE_URL = os.getenv("API_BASE_URL")
 MODEL_NAME   = os.getenv("MODEL_NAME")
-HF_TOKEN     = os.getenv("HF_TOKEN")
+API_KEY = os.getenv("API_KEY")
 
 # ✅ FIX: correct container-safe URL
 BASE_URL = "http://localhost:7860"
@@ -31,16 +31,16 @@ BENCHMARK = "robot_arm_openenv"
 MAX_STEPS = 15
 
 # ✅ Safe fallback (DO NOT CRASH)
-if not API_BASE_URL or not MODEL_NAME or not HF_TOKEN:
+if not API_BASE_URL or not MODEL_NAME or not API_KEY:
     print("⚠️ Missing API config, switching to fallback mode", flush=True)
     API_BASE_URL = None
     MODEL_NAME = None
-    HF_TOKEN = None
-
+    API_KEY = None
+    
 client = None
-if API_BASE_URL and MODEL_NAME and HF_TOKEN:
+if API_BASE_URL and MODEL_NAME and API_KEY:
     client = OpenAI(
-        api_key=HF_TOKEN,
+        api_key=API_KEY,
         base_url=API_BASE_URL,
     )
 
@@ -168,23 +168,25 @@ def run_task(task_id: str):
             action = None
 
             try:
-                response = client.chat.completions.create(
-                    model=MODEL_NAME,
-                    messages=messages,
-                    temperature=0.2,
-                    max_tokens=150,
-                )
+                if client:
+                    
+                    response = client.chat.completions.create(
+                        model=MODEL_NAME,
+                        messages=messages,
+                        temperature=0.2,
+                        max_tokens=150,
+                    )
 
-                raw = response.choices[0].message.content or ""
-                parsed = safe_parse(raw)
+                    raw = response.choices[0].message.content or ""
+                    parsed = safe_parse(raw)
 
-                if parsed:
-                    action = {
-                        "action_type": parsed.get("action_type", "skip"),
-                        "object_id": parsed.get("object_id"),
-                    }
+                    if parsed:
+                        action = {
+                            "action_type": parsed.get("action_type", "skip"),
+                            "object_id": parsed.get("object_id"),
+                        }
 
-                messages.append({"role": "assistant", "content": raw})
+                    messages.append({"role": "assistant", "content": raw})
 
             except Exception as e:
                 last_error = str(e)
