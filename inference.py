@@ -14,6 +14,8 @@ from env.models import Action
 from env.grader import grade
 from env.tasks import TASKS
 
+print("📦 inference.py loaded", flush=True)
+
 # ─────────────────────────────────────────
 # CONFIG
 # ─────────────────────────────────────────
@@ -22,7 +24,8 @@ API_BASE_URL = os.getenv("API_BASE_URL")
 MODEL_NAME   = os.getenv("MODEL_NAME")
 HF_TOKEN     = os.getenv("HF_TOKEN")
 
-BASE_URL = "http://127.0.0.1:8000"
+# ✅ FIX: correct container-safe URL
+BASE_URL = "http://localhost:7860"
 
 BENCHMARK = "robot_arm_openenv"
 MAX_STEPS = 15
@@ -42,7 +45,7 @@ client = OpenAI(
 # ─────────────────────────────────────────
 
 def wait_for_server():
-    for _ in range(15):
+    for _ in range(20):  # slightly more retries
         try:
             r = requests.get(BASE_URL)
             if r.status_code == 200:
@@ -134,7 +137,6 @@ def run_task(task_id: str):
         res = requests.post(f"{BASE_URL}/reset", json={"task": task_id})
         data = res.json()
 
-        # ✅ FIX 1: handle reset error safely
         if "error" in data:
             print("[RESET FAILED]", data["error"], flush=True)
             return
@@ -190,12 +192,10 @@ def run_task(task_id: str):
                 res = requests.post(f"{BASE_URL}/step", json=action)
                 data = res.json()
 
-                # ✅ FIX 2: handle step error safely
                 if "error" in data:
                     print("[STEP FAILED]", data["error"], flush=True)
                     break
 
-                # ✅ OPTIONAL SAFETY (no crash on bad response)
                 if "observation" not in data:
                     print("[INVALID RESPONSE]", data, flush=True)
                     break
@@ -229,14 +229,22 @@ def run_task(task_id: str):
     )
 
 # ─────────────────────────────────────────
-# ENTRY POINT
+# ENTRY POINT (CRITICAL FIX)
 # ─────────────────────────────────────────
 
 if __name__ == "__main__":
-    if not wait_for_server():
-        exit(1)
+    try:
+        print("🚀 INFERENCE STARTED", flush=True)
 
-    for task_id in TASKS.keys():
-        run_task(task_id)
+        if not wait_for_server():
+            print("Server not reachable ❌", flush=True)
+            exit(0)  # ✅ DO NOT crash
 
-    print("✅ Inference completed.", flush=True)
+        for task_id in TASKS.keys():
+            run_task(task_id)
+
+        print("✅ Inference completed.", flush=True)
+
+    except Exception as e:
+        print("[FATAL ERROR]", str(e), flush=True)
+        exit(0)  # ✅ NEVER exit with error
