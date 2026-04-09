@@ -132,7 +132,15 @@ def run_task(task_id: str):
 
     try:
         res = requests.post(f"{BASE_URL}/reset", json={"task": task_id})
-        obs = res.json()
+        data = res.json()
+
+        # ✅ FIX 1: handle reset error safely
+        if "error" in data:
+            print("[RESET FAILED]", data["error"], flush=True)
+            return
+
+        obs = data
+
     except Exception as e:
         print("[RESET ERROR]", e, flush=True)
         return
@@ -181,6 +189,17 @@ def run_task(task_id: str):
             try:
                 res = requests.post(f"{BASE_URL}/step", json=action)
                 data = res.json()
+
+                # ✅ FIX 2: handle step error safely
+                if "error" in data:
+                    print("[STEP FAILED]", data["error"], flush=True)
+                    break
+
+                # ✅ OPTIONAL SAFETY (no crash on bad response)
+                if "observation" not in data:
+                    print("[INVALID RESPONSE]", data, flush=True)
+                    break
+
             except Exception as e:
                 print("[STEP ERROR]", e, flush=True)
                 break
